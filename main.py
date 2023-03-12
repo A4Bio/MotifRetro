@@ -82,7 +82,7 @@ class Exp:
             # from methods.MotifRetro2_GNN import MotifRetro
             # self.method = MotifRetro(self.args, self.device, steps_per_epoch, self.train_loader.dataset.feat_vocab, self.train_loader.dataset.action_vocab)
             
-            from methods.MotifRetro3_GNN import MotifRetro
+            from methods.MotifRetro5_GNN import MotifRetro
             self.method = MotifRetro(self.args, self.device, steps_per_epoch, self.train_loader.dataset.feat_vocab, self.train_loader.dataset.action_vocab)
 
     def _get_data(self):
@@ -131,6 +131,7 @@ class Exp:
     def train(self):
         recorder = Recorder(self.args.patience, verbose=True)
         for epoch in range(self.args.epoch):
+            self.method.epoch = epoch
             train_metric = self.method.train_one_epoch(self.train_loader)
 
             new_train_metric = {}
@@ -192,7 +193,7 @@ if __name__ == '__main__':
     exp = Exp(args)
     # args.only_test = True
 
-    # exp.method.model.load_state_dict(torch.load("/gaozhangyang/experiments/MotifRetro/results/rm_supernode_padding_multi_gated_attn_2023-03-07 07:37:40.894695/checkpoint.pth"))
+    # exp.method.model.load_state_dict(torch.load("/xuyongjie/gaozhangyang/experiments/MotifRetro/results/temporal_GRU_graphnrom2023-03-12 02:00:23.176755/checkpoint.pth"))
     
 
     if not args.only_test:
@@ -201,6 +202,8 @@ if __name__ == '__main__':
             exp.train()
         else:
             exp.valid()
+        # exp.train()
+        # exp.valid()
     # print('>>>>>>>>>>>>>>>>>>>>>>>>> testing  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
     else:
         test_metric = exp.test()

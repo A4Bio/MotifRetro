@@ -12,7 +12,7 @@ from torch_scatter import scatter_max, scatter_mean, scatter_sum
 from tqdm import tqdm
 
 from methods.base_method import Base_method
-from models.MotifRetro_GNN_model import Megan
+from models.MotifRetro5_GNN_model import MotifRetro_model
 from src.feat.utils import fix_explicit_hs
 from src.model.beam_search import  BeamSearch 
 from src.model.megan_utils import RdkitCache, get_base_action_masks
@@ -34,7 +34,7 @@ class MotifRetro(Base_method):
     def _build_model(self, feat_vocab, action_vocab):
         
         
-        model = Megan(n_atom_actions=action_vocab['n_atom_actions'],
+        model = MotifRetro_model(n_atom_actions=action_vocab['n_atom_actions'],
                   n_bond_actions=action_vocab['n_bond_actions'],
                   bond_emb_dim = self.args.bond_emb_dim,
                   hidden_dim = self.args.hidden_dim,
@@ -213,7 +213,7 @@ class MotifRetro(Base_method):
         return metric, correct_actions, incorrect_actions, all_correct, correct
     
     def forward_loss_metric(self, batch):
-        prediction_scores = self.model.forward(batch)
+        prediction_scores = self.model(batch)
                 
         batch_metric = {"acc": 0.0, "step_acc": 0.0}
         loss = self.get_loss_sparse(prediction_scores)
@@ -239,8 +239,6 @@ class MotifRetro(Base_method):
 
         for idx, (batch, source_smi, target_smi) in enumerate(train_pbar):
             self.optimizer.zero_grad()
-            
-
             
             if self.mix_precision:
                 loss, batch_metric, correct_actions, incorrect_actions = self.forward_loss_metric(batch)
@@ -289,6 +287,8 @@ class MotifRetro(Base_method):
 
         epoch_metric = {}
         for action_tuple in self.action_vocab["action_freq"].keys():
+            if action_tuple not in [('change_bond', (None, None)), ('stop', None)]:
+                continue
             this_correct = 0
             this_in_correct = 0
             if action_tuple in all_correct:
@@ -298,9 +298,9 @@ class MotifRetro(Base_method):
                 this_in_correct = all_in_correct[action_tuple]
         
             try:
-                epoch_metric[f'act_{str(action_tuple)}'] = this_correct/ (this_correct + this_in_correct)  
+                epoch_metric[f'acc_{str(action_tuple)}'] = this_correct/ (this_correct + this_in_correct)  
             except:
-                epoch_metric[f'act_{str(action_tuple)}'] = 0  # [0, 0, None]
+                epoch_metric[f'acc_{str(action_tuple)}'] = 0  # [0, 0, None]
 
         for k in batch_metric.keys():
             epoch_metric[k] = np.mean([one[k] for one in metric_list])
@@ -308,7 +308,6 @@ class MotifRetro(Base_method):
         return epoch_metric
 
     def test_one_epoch(self, test_loader):  # support beam-search
-        # prog_bar = tqdm(desc=f'{save_path} beam search on {split_key}', total=len(split_ind))
         def prediction_is_correct(y_pred: str, y_true: str):
             if not y_pred:
                 return False
@@ -412,8 +411,7 @@ class MotifRetro(Base_method):
                                     base_action_masks=base_action_masks, max_atoms=self.args.n_max_atoms,
                                     reaction_types=reaction_types,
                                     feat_vocab=self.feat_vocab,
-                                    action_vocab=self.action_vocab, 
-                                    sparse=self.args.sparse)
+                                    action_vocab=self.action_vocab)
 
             with torch.no_grad():
                 beam_search_results = eval_model.beamsearch(input_mols)
@@ -455,7 +453,6 @@ class MotifRetro(Base_method):
                     is_duplicate.append(final_smi in final_smis)
                     is_incorrect.append(final_smi is None or final_smi == '')
                     final_smis.add(final_smi)
-                    # print(final_smi)
                     correct = prediction_is_correct(final_smi, target_smi)
 
                     # 如果这是第一个预测正确的结果

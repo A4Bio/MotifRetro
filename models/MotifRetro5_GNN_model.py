@@ -10,12 +10,21 @@ from torch import nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-from modules.MotifRetro_GNN_module import MeganDecoder
-from modules.MotifRetro_GNN_module import MeganEncoder
+from modules.MotifRetro5_GNN_module import MeganDecoder
+from modules.MotifRetro5_GNN_module import MeganEncoder
 import numpy as np
 import random
 import time
+import math
+import torch
+import torch.nn as nn
+import numpy as np
 from torch_scatter import scatter_softmax, scatter_mean, scatter_max
+from transformers import BertConfig, BertModel
+import torch
+
+
+
 
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
@@ -36,7 +45,43 @@ default_bond_features = 'bond_type', 'bond_stereo', 'is_edited'
 default_motif_features = 'is_supernode', 'motif_ids'
 
 
-class Megan(nn.Module):
+def timestep_embedding(timesteps, dim, max_period=10000, repeat_only=False):
+    """
+    Create sinusoidal timestep embeddings.
+    :param timesteps: a 1-D Tensor of N indices, one per batch element.
+                      These may be fractional.
+    :param dim: the dimension of the output.
+    :param max_period: controls the minimum frequency of the embeddings.
+    :return: an [N x dim] Tensor of positional embeddings.
+    """
+    half = dim // 2
+    freqs = torch.exp(
+        -math.log(max_period) * torch.arange(start=0, end=half, dtype=torch.float32) / half
+    ).to(device=timesteps.device)
+    args = timesteps[:, None].float() * freqs[None]
+    embedding = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)
+    if dim % 2:
+        embedding = torch.cat([embedding, torch.zeros_like(embedding[:, :1])], dim=-1)
+    return embedding
+
+
+class ActionFormer(nn.Module):
+    def __init__(self, vocab_size=100, outdim=1024, num_hidden_layers=5) -> None:
+        super().__init__()
+        # Define BERT configuration
+        config = BertConfig(vocab_size=vocab_size, hidden_size=768, num_hidden_layers=num_hidden_layers, num_attention_heads=12, intermediate_size=1024, 
+                            hidden_dropout_prob=0.1, attention_probs_dropout_prob=0.1)
+        self.readout = nn.Linear(768, outdim)
+
+        self.bert_model = BertModel(config)
+    
+    def forward(self, prev_action, position_ids, attention_mask):
+        outputs = self.bert_model(prev_action, position_ids=position_ids, attention_mask=attention_mask)
+        out = self.readout(outputs[0][:,0,:])
+        return out
+
+
+class MotifRetro_model(nn.Module):
     def __init__(self, 
                  n_atom_actions: int, 
                  n_bond_actions: int, 
@@ -65,7 +110,7 @@ class Megan(nn.Module):
                  attention_dropout = 0.1,
                  temperature = 1.0,
     ):
-        super(Megan, self).__init__()
+        super(MotifRetro_model, self).__init__()
         self.prop2oh = feat_vocab['prop2oh']
         self.feat_vocab = feat_vocab
         self.n_actions = n_atom_actions
@@ -131,12 +176,15 @@ class Megan(nn.Module):
         self.graph_predictor = nn.Sequential(nn.Linear(2*hidden_dim, 128),
                                              nn.ReLU(),
                                              nn.Linear(128,4))
-
-    def _preprocess_sparse(self,x):        
-        atom_feats = (torch.matmul(x['atom_feats'].double(), self.atom_embedding.weight.t().double()) + self.atom_embedding.bias).float()  # [:30]
         
-        bond_feats = self.bond_embedding(x['bond_feats'])
+        self.global_id = n_atom_actions+n_bond_actions
+        
+        self.actionformer = ActionFormer()
 
+    def _preprocess_sparse(self,x):  
+        atom_feats = self.atom_embedding(x['atom_feats'])   
+        bond_feats = self.bond_embedding(x['bond_feats'])
+        
         if self.reaction_type_given:
             graph_id = x['graph_id']
             new_graph_id = copy.deepcopy(x['graph_id'])
@@ -168,25 +216,25 @@ class Megan(nn.Module):
         return x
     
     def forward(self, batch, given_reaction_center=False):
-        # batch 是一个 长度 为 max_edit_len 的列表
-        # graph_id torch.Size([3875])               # 一个batch的原子个数总和。graph_id 内每个元素代表对应原子的 batch_id
-        # node_features torch.Size([3875, 8])       # 所有原子的 feature 矩阵
-        # atom_action torch.Size([3875, 47])        # 所有 atom action 的 label
-        # bond_action torch.Size([100, 47])         # 代表 bond action 的 label
-        # bond_action_idx torch.Size([100, 2])      # bond_action index 代表 bond action 对应的两个原子索引
-        # is_hard torch.Size([128])
-        # action_ind torch.Size([128])              # 暂时不知道什么意思
-        # edge_idx torch.Size([17915, 2])           # 边的稀疏adjacency matrix
-        # edge_val torch.Size([17915, 3])           # adjacency matrix 的特征
-
         n_steps = len(batch)
         prediction_scores = []
 
         state_dict = None
         steps_range = range(1, n_steps) if given_reaction_center else range(n_steps)
+        
+        B = batch[0]['graph_id'].unique().shape[0]
+        device = batch[0]['graph_id'].device
+        prev_actions = torch.zeros(B, len(batch)+1, device=device).long()-1
+        
+        for idx, step_batch in enumerate(batch):
+            g_id = step_batch['graph_id'].unique()
+            prev_actions[g_id, idx+1] = step_batch['action_ind']
+
         for step_i in steps_range:
             step_batch = batch[step_i]
-            step_results = self.forward_step_sparse(step_batch, state_dict=state_dict)
+            prev_action = prev_actions[step_batch['graph_id'].unique(),:step_i+1]
+            step_batch["prev_action"] = prev_action
+            step_results = self.forward_one_step(step_batch, state_dict=state_dict)
             state_dict = {
                 'state': step_results['state'],
             }
@@ -208,6 +256,7 @@ class Megan(nn.Module):
                 # val = F.pad(val, 0,0, 0, N_new-val.shape[0])  # [20, 1024] -> [21, 1024]
             state_list.append(val)
         state_val = torch.cat(state_list, dim=0)
+        # state_val = torch.zeros_like(state_val)# remove hidden state
         return state_val
     
     def patch_softmax(self, pred_scores, temperature=1.0, useAtomAction=True, useBondAction=True, useAttachAction=False):
@@ -235,24 +284,21 @@ class Megan(nn.Module):
             
         
     
-    def forward_step_sparse(self, step_batch: dict, state_dict=Optional[dict],
+    def forward_one_step(self, step_batch: dict, state_dict=Optional[dict],
                      first_step: Optional[List[int]] = None) -> dict:
         step_batch = self._preprocess_sparse(step_batch)
-
-        # run encoder only on the first step of generation
-        step_batch = self.encoder.forward(step_batch)
-        if state_dict is not None:
+        
+        step_batch = self.encoder(step_batch)
+        if  state_dict is not None:
             node_state = state_dict['state']["val"]
             state_graph_id = state_dict['state']["graph_id"]
             graph_id = step_batch['graph_id']
-        # merge embeddings of nodes with their "state" (features taken from previous decoder)
             state_val = self.make_state(node_state, state_graph_id, graph_id) 
-            merged_node_features = torch.max(step_batch['atom_feats'], state_val)
+            step_batch['temporal_feat'] = state_val
         else:
-            merged_node_features = step_batch['atom_feats']
-        step_batch['atom_feats'] = merged_node_features
+            step_batch['temporal_feat'] = torch.zeros_like(step_batch['atom_feats'])
 
-        node_state, pred_scores = self.decoder.forward(step_batch)
+        node_state, pred_scores = self.decoder(step_batch)
         
         graph_id_unique = step_batch['graph_id'].unique()
         
@@ -278,3 +324,11 @@ class Megan(nn.Module):
 
         return result
 
+
+if __name__ == "__main__":
+    model = ActionFormer()
+    prev_action = torch.randint(0, 10, (32, 4))
+    prev_t = torch.arange(4).unsqueeze(0).repeat(32, 1)
+    mask = torch.ones(32, 4).bool()
+    out = model(prev_action, prev_t, mask)
+    

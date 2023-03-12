@@ -165,10 +165,10 @@ def merge_eval_graph(graph_list, feat_vocab):
         edge_idx_remove_supernode_idx = torch.tensor(edge_idx_remove_supernode_idx)
         bond_action_mask = bond_action_mask[:,:-1]# remove attach action
         
-        # remove supernode edges
-        bond_feats = bond_feats[edge_idx_remove_supernode_idx]
-        edge_idx = edge_idx[edge_idx_remove_supernode_idx]
-        bond_action_mask = bond_action_mask[edge_idx_remove_supernode_idx]
+        # # remove supernode edges
+        # bond_feats = bond_feats[edge_idx_remove_supernode_idx]
+        # edge_idx = edge_idx[edge_idx_remove_supernode_idx]
+        # bond_action_mask = bond_action_mask[edge_idx_remove_supernode_idx]
 
 
         return {"graph_id": graph_id,
@@ -190,7 +190,7 @@ def merge_eval_graph(graph_list, feat_vocab):
 
 
 def get_batch(paths: List[dict], base_action_masks: dict,
-              reaction_types: Optional[np.ndarray] = None, sparse: bool = False, feat_vocab=None) -> Tuple[dict, List[torch.Tensor]]:
+              reaction_types: Optional[np.ndarray] = None, feat_vocab=None) -> Tuple[dict, List[torch.Tensor]]:
     batch = generate_eval_batch([p['mol_graph'] for p in paths],
                                 base_action_masks=base_action_masks, reaction_types=reaction_types)
 
@@ -432,7 +432,7 @@ def transform_edit_path(edit_path, feat_vocab):
 
 
 class BeamSearch:
-    def __init__(self, models, base_action_masks: dict, feat_vocab: dict, action_vocab:dict, max_steps: int = 16, beam_size: int = 1,batch_size: int = 32, max_atoms: int = 200, min_prob: float = 0.0, min_stop_prob: float = 0.0,filter_duplicates: bool = False, filter_incorrect: bool = True,reaction_types: Optional[np.ndarray] = None, softmax_base: float = 1.0,export_samples: bool = False,  sparse: bool = False) -> List[List[dict]]:
+    def __init__(self, models, base_action_masks: dict, feat_vocab: dict, action_vocab:dict, max_steps: int = 16, beam_size: int = 1,batch_size: int = 32, max_atoms: int = 200, min_prob: float = 0.0, min_stop_prob: float = 0.0,filter_duplicates: bool = False, filter_incorrect: bool = True,reaction_types: Optional[np.ndarray] = None, softmax_base: float = 1.0,export_samples: bool = False) -> List[List[dict]]:
         super(BeamSearch, self).__init__()
         self.models = models
         self.feat_vocab = feat_vocab
@@ -441,7 +441,6 @@ class BeamSearch:
         self.reaction_types = reaction_types
         self.base_action_masks = base_action_masks
         self.beam_size = beam_size
-        self.sparse = sparse
         self.action_vocab = action_vocab
         self.min_prob = min_prob
         self.min_stop_prob = min_stop_prob
@@ -498,7 +497,7 @@ class BeamSearch:
             batch_reaction_types = np.asarray([self.reaction_types[p['mol_ind']] for p in path_batch])
         else:
             batch_reaction_types = None
-        step_batch, step_state = get_batch(path_batch, self.base_action_masks, batch_reaction_types, self.sparse, feat_vocab=self.feat_vocab)
+        step_batch, step_state = get_batch(path_batch, self.base_action_masks, batch_reaction_types, feat_vocab=self.feat_vocab)
         new_batch_paths = []
 
         # cancel model ensemble
@@ -514,7 +513,7 @@ class BeamSearch:
             else:
                 model_batch[k] = v
 
-        model_step_results = model.forward_step_sparse(step_batch=model_batch, state_dict=state_dict)
+        model_step_results = model.forward_one_step(step_batch=model_batch, state_dict=state_dict)
 
         batch_actions = get_best_actions(model_batch, model_step_results['pred_scores'], self.beam_size)
 

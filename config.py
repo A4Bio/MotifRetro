@@ -11,7 +11,7 @@ def create_parser():
     parser.add_argument('--seed', default=111, type=int)
     parser.add_argument('--res_dir', default='/xuyongjie/gaozhangyang/experiments/MotifRetro/results', type=str)
     
-    parser.add_argument('--ex_name', default='search', type=str)
+    parser.add_argument('--ex_name', default='debug', type=str)
     parser.add_argument('--dataset_key', default='uspto_50k', type=str, choices=["uspto_50k", "uspto_hard"])
     parser.add_argument('--featurizer_key', default='uspto_50k_motiftree_bfs_recheck', type=str)
 
@@ -19,7 +19,7 @@ def create_parser():
     parser.add_argument('--data_path', default='/xuyongjie/gaozhangyang/experiments/MotifRetro/data')
     parser.add_argument("--traversal", default="bfs", choices=['bfs', 'dfs', 'mix'])
     parser.add_argument('--num_workers', default=16, type=int)
-    parser.add_argument('--vocab_path', default="motif_trees_1.0000_0.2605", choices=['motif_trees_0.2011_1.0000', 'motif_trees_0.2468_0.8299', 'motif_trees_0.2763_0.7547', 'motif_trees_0.2853_0.7320', 'motif_trees_0.3880_0.5834', 'motif_trees_0.3953_0.5734', 'motif_trees_0.4349_0.5453', 'motif_trees_0.6536_0.3793', 'motif_trees_0.7802_0.3220', 'motif_trees_0.7872_0.3201', 'motif_trees_0.8348_0.3022', 'motif_trees_0.8883_0.2845', 'motif_trees_0.9113_0.2777', 'motif_trees_0.9254_0.2739', 'motif_trees_0.9883_0.2615', 'motif_trees_1.0000_0.2605'])
+    parser.add_argument('--vocab_path', default="motif_trees_0.7802_0.3220", choices=['motif_trees_0.2011_1.0000', 'motif_trees_0.2468_0.8299', 'motif_trees_0.2763_0.7547', 'motif_trees_0.2853_0.7320', 'motif_trees_0.3880_0.5834', 'motif_trees_0.3953_0.5734', 'motif_trees_0.4349_0.5453', 'motif_trees_0.6536_0.3793', 'motif_trees_0.7802_0.3220', 'motif_trees_0.7872_0.3201', 'motif_trees_0.8348_0.3022', 'motif_trees_0.8883_0.2845', 'motif_trees_0.9113_0.2777', 'motif_trees_0.9254_0.2739', 'motif_trees_0.9883_0.2615', 'motif_trees_1.0000_0.2605'])
     parser.add_argument('--n_reaction_types', default=10, type=int)
     parser.add_argument('--reaction_type_given', default=False, type=bool)
     
@@ -32,7 +32,7 @@ def create_parser():
     parser.add_argument('--useAttachAction', default=1, type=int)
     
     # Training parameters
-    parser.add_argument('--epoch', default=20, type=int, help='end epoch')
+    parser.add_argument('--epoch', default=50, type=int, help='end epoch')
     parser.add_argument('--log_step', default=1, type=int)
     parser.add_argument('--lr', default=0.0005, type=float, help='Learning rate')
     parser.add_argument('--batch_size', default=128, type=int)
