@@ -176,7 +176,7 @@ class MeganEncoder(nn.Module):
         for i, conv in enumerate(self.conv_layers):
             atom_feats = conv.MPNN(atom_feats, bond_feats, edge_idx, graph_id, not_padding, temporal_feat) + conv.MPNN(atom_feats, bond_feats[x["edge_idx_remove_supernode"]], edge_idx[x["edge_idx_remove_supernode"]], graph_id, not_padding, temporal_feat)
             
-            # atom_feats = conv.SynthonAttn(atom_feats, sub_graph_id, not_padding, graph_id, temporal_feat)
+            atom_feats = conv.SynthonAttn(atom_feats, sub_graph_id, not_padding, graph_id, temporal_feat)
 
             atom_feats, bond_feats = conv.update_node_edge(atom_feats, bond_feats, edge_idx)
             atom_feats = atom_feats + prev_atom_feats
@@ -304,7 +304,7 @@ class MeganDecoder(nn.Module):
         for i, conv in enumerate(self.conv_layers):
             atom_feats = conv.MPNN(atom_feats, bond_feats, edge_idx, graph_id,not_padding, hidden_feat)+ conv.MPNN(atom_feats, bond_feats[x["edge_idx_remove_supernode"]], edge_idx[x["edge_idx_remove_supernode"]], graph_id, not_padding, hidden_feat)
             
-            # atom_feats = conv.SynthonAttn(atom_feats, sub_graph_id, not_padding, graph_id, hidden_feat)
+            atom_feats = conv.SynthonAttn(atom_feats, sub_graph_id, not_padding, graph_id, hidden_feat)
             
             hidden_feat = conv.TemporalGate(atom_feats, hidden_feat)
             
