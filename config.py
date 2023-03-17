@@ -9,14 +9,14 @@ def create_parser():
     parser.add_argument('--display_step', default=10, type=int, help='Interval in batches between display of training metrics')
     parser.add_argument('--use_gpu', default=True, type=bool)
     parser.add_argument('--seed', default=111, type=int)
-    parser.add_argument('--res_dir', default='/xuyongjie/gaozhangyang/experiments/MotifRetro/results', type=str)
+    parser.add_argument('--res_dir', default='/gaozhangyang/experiments/MotifRetro/results', type=str)
     
     parser.add_argument('--ex_name', default='debug', type=str)
     parser.add_argument('--dataset_key', default='uspto_50k', type=str, choices=["uspto_50k", "uspto_hard"])
     parser.add_argument('--featurizer_key', default='uspto_50k_motiftree_bfs_recheck', type=str)
 
     # dataset parameters
-    parser.add_argument('--data_path', default='/xuyongjie/gaozhangyang/experiments/MotifRetro/data')
+    parser.add_argument('--data_path', default='/gaozhangyang/experiments/MotifRetro/data')
     parser.add_argument("--traversal", default="bfs", choices=['bfs', 'dfs', 'mix'])
     parser.add_argument('--num_workers', default=16, type=int)
     parser.add_argument('--vocab_path', default="motif_trees_0.7802_0.3220", choices=['motif_trees_0.2011_1.0000', 'motif_trees_0.2468_0.8299', 'motif_trees_0.2763_0.7547', 'motif_trees_0.2853_0.7320', 'motif_trees_0.3880_0.5834', 'motif_trees_0.3953_0.5734', 'motif_trees_0.4349_0.5453', 'motif_trees_0.6536_0.3793', 'motif_trees_0.7802_0.3220', 'motif_trees_0.7872_0.3201', 'motif_trees_0.8348_0.3022', 'motif_trees_0.8883_0.2845', 'motif_trees_0.9113_0.2777', 'motif_trees_0.9254_0.2739', 'motif_trees_0.9883_0.2615', 'motif_trees_1.0000_0.2605'])
@@ -77,7 +77,7 @@ def create_parser():
     args = parser.parse_args()
     args.ex_name += str(datetime.now())
     args.featurizer_key = args.vocab_path
-    args.vocab_path = os.path.join("/xuyongjie/gaozhangyang/experiments/MotifRetro/data/uspto_50k",  args.vocab_path+".json")
+    args.vocab_path = os.path.join("/gaozhangyang/experiments/MotifRetro/data/uspto_50k",  args.vocab_path+".json")
     # if args.dropout is not None:
     #     args.enc_dropout = args.dropout
     #     args.dec_dropout = args.dropout

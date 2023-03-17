@@ -9,7 +9,7 @@ from torch import nn
 import torch.nn.functional as F
 from torch_scatter import scatter_softmax, scatter_sum, scatter_mean
 from torch_geometric.nn.norm.graph_norm import GraphNorm
-
+import torch.nn.init as init
 
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
@@ -60,17 +60,26 @@ class MultiHeadGraphConvLayer(nn.Module):
         self.gated_attn = nn.Linear(input_dim, input_dim)
         
         # TemporalGate
-        self.gate_r = nn.Linear(2*input_dim, input_dim)
-        self.gate_z = nn.Linear(2*input_dim, input_dim)
-        self.gate_h = nn.Linear(2*input_dim, input_dim)
+        # self.gate_r = nn.Linear(2*input_dim, input_dim)
+        # self.gate_z = nn.Linear(2*input_dim, input_dim)
+        # self.gate_h = nn.Linear(2*input_dim, input_dim)
         
+        self.gate_r = nn.Linear(input_dim, input_dim)
+        self.gate_z = nn.Linear(input_dim, input_dim)
+        self.gate_h = nn.Linear(input_dim, input_dim)
+        
+        # init.orthogonal_(self.gate_r.weight, gain=1)
+        # init.orthogonal_(self.gate_z.weight, gain=1)
+        # init.orthogonal_(self.gate_h.weight, gain=1)
+        # init.orthogonal_(self.gated_attn.weight, gain=1)
         
         # update layer
         self.atom_layer = nn.Linear(input_dim, output_dim)
         self.bond_layer = nn.Linear(input_dim + bond_dim, bond_dim)
     
     def MPNN(self, atom_feat, bond_feat, edge_idx, graph_id, not_padding, hidden_feat=None):
-        atom_feat = self.mpnn_input(torch.cat([atom_feat, hidden_feat], dim=-1))
+        # atom_feat = self.mpnn_input(torch.cat([atom_feat, hidden_feat], dim=-1))
+        atom_feat = torch.max(atom_feat, hidden_feat)
         x_att = torch.relu(self.atoms_att(atom_feat))  # [N, att_dim]
         x_att = torch.cat([x_att[edge_idx[:,1]], x_att[edge_idx[:,0]], bond_feat], dim=-1)  # [E, 2 * att_dim + bond_dim]
         x_att = self.final_att(x_att)  # [E, att_heads]
@@ -80,11 +89,11 @@ class MultiHeadGraphConvLayer(nn.Module):
         out = scatter_sum((att.unsqueeze(1) * self.v_layer(atom_feat)[dst].unsqueeze(2)), src, dim=0, dim_size=atom_feat.shape[0])
         out = self.conv_layer(out.view(out.shape[0], -1))
         
-        node_mask = not_padding==1
-        temp_norm = self.graph_norm(out[node_mask], graph_id[node_mask])
-        temp = torch.zeros_like(out)
-        temp[node_mask] = temp_norm
-        out = node_mask[:,None]*temp + (~node_mask[:,None])*out
+        # node_mask = not_padding==1
+        # temp_norm = self.graph_norm(out[node_mask], graph_id[node_mask])
+        # temp = torch.zeros_like(out)
+        # temp[node_mask] = temp_norm
+        # out = node_mask[:,None]*temp + (~node_mask[:,None])*out
         return out
     
     def SynthonAttn(self, atom_feats, sub_graph_id, not_padding, graph_id, hidden_feat=None):
@@ -117,16 +126,21 @@ class MultiHeadGraphConvLayer(nn.Module):
         return out
     
     def TemporalGate(self, atom_feats, hidden_feat=None):
-        r = F.sigmoid(self.gate_r(torch.cat([atom_feats, hidden_feat], dim=-1)))
-        z = F.sigmoid(self.gate_z(torch.cat([atom_feats, hidden_feat], dim=-1)))
-        h = self.gate_h(torch.cat([r*hidden_feat, atom_feats], dim=-1))
+        # r = F.sigmoid(self.gate_r(torch.cat([atom_feats, hidden_feat], dim=-1)))
+        # z = F.sigmoid(self.gate_z(torch.cat([atom_feats, hidden_feat], dim=-1)))
+        # h = self.gate_h(torch.cat([r*hidden_feat, atom_feats], dim=-1))
+        
+        r = F.sigmoid(self.gate_r(torch.max(atom_feats, hidden_feat)))
+        z = F.sigmoid(self.gate_z(torch.max(atom_feats, hidden_feat)))
+        h = self.gate_h(torch.max(r*hidden_feat, atom_feats))
         h = (1-z)*h + z*h
         return h
+        # return atom_feats
     
     def update_node_edge(self, node_feat, bond_feat, edge_idx):
         new_bond_feat = torch.cat([node_feat[edge_idx[:,1]] + node_feat[edge_idx[:,0]], bond_feat], dim=-1)
         new_bond_feat = torch.relu(self.bond_layer(new_bond_feat))
-        node_feat = F.relu(self.atom_layer(node_feat))
+        # node_feat = F.relu(self.atom_layer(node_feat))
         return node_feat, new_bond_feat
     
     
@@ -305,7 +319,7 @@ class MeganDecoder(nn.Module):
         atom_actions_feat = self._forward_atom_features(atom_feats)
         bond_actions_feat = self._forward_bond_features_sparse(atom_feats, bond_feats, edge_idx)
 
-        return node_state, atom_actions_feat, bond_actions_feat
+        return node_state, hidden_feat, atom_actions_feat, bond_actions_feat
   
     
     def atom_num_predictor(self, node_state, graph_id):
@@ -317,7 +331,7 @@ class MeganDecoder(nn.Module):
     def forward(self, x: dict) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         # [batch_size, atom_num, atom_fc_hidden_dim]
         # node_state, atom_actions_feat, upper_bond_actions_feat, lower_bond_actions_feat = self.forward_embedding_sparse(x)
-        node_state, atom_actions_feat, bond_actions_feat = self.forward_embedding_sparse(x)
+        node_state, temporal_feat, atom_actions_feat, bond_actions_feat = self.forward_embedding_sparse(x)
 
 
         atom_actions_feat = self.fc_atom_layers[-1](atom_actions_feat)  
@@ -426,4 +440,4 @@ class MeganDecoder(nn.Module):
             scores["attach_mask"] = torch.zeros(0, device=bond_mask.device)
             scores["attach_target"] = torch.zeros(0, device=bond_mask.device)
         
-        return node_state, scores
+        return node_state, temporal_feat, scores

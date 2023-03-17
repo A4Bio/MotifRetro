@@ -20,7 +20,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from torch_scatter import scatter_softmax, scatter_mean, scatter_max
-from transformers import BertConfig, BertModel
+# from transformers import BertConfig, BertModel
 import torch
 
 
@@ -179,7 +179,7 @@ class MotifRetro_model(nn.Module):
         
         self.global_id = n_atom_actions+n_bond_actions
         
-        self.actionformer = ActionFormer()
+        # self.actionformer = ActionFormer()
 
     def _preprocess_sparse(self,x):  
         atom_feats = self.atom_embedding(x['atom_feats'])   
@@ -298,7 +298,7 @@ class MotifRetro_model(nn.Module):
         else:
             step_batch['temporal_feat'] = torch.zeros_like(step_batch['atom_feats'])
 
-        node_state, pred_scores = self.decoder(step_batch)
+        node_state, temporal_feat, pred_scores = self.decoder(step_batch)
         
         graph_id_unique = step_batch['graph_id'].unique()
         
