@@ -82,6 +82,9 @@ class Exp:
             # from methods.MotifRetro2_GNN import MotifRetro
             # self.method = MotifRetro(self.args, self.device, steps_per_epoch, self.train_loader.dataset.feat_vocab, self.train_loader.dataset.action_vocab)
             
+            # from methods.MotifRetro_GNN import MotifRetro
+            # self.method = MotifRetro(self.args, self.device, steps_per_epoch, self.train_loader.dataset.feat_vocab, self.train_loader.dataset.action_vocab)
+            
             from methods.MotifRetro5_GNN import MotifRetro
             self.method = MotifRetro(self.args, self.device, steps_per_epoch, self.train_loader.dataset.feat_vocab, self.train_loader.dataset.action_vocab)
 
@@ -141,13 +144,13 @@ class Exp:
                 wandb.log(new_train_metric)
             print_log(new_train_metric)
 
-            if epoch>self.args.epoch//3:
+            if epoch>self.args.epoch-3:
                 self._save("epoch_{}".format(epoch))
             if epoch % self.args.log_step == 0:
                 valid_metric = self.valid()
                 
                 print_log('Epoch: {}, Steps: {} | Train Loss: {:.4f}  Valid Loss: {:.4f}\n'.format(epoch + 1, len(self.train_loader), train_metric['loss'], valid_metric['loss']))
-                recorder(valid_metric['loss'], self.method.model, self.path)
+                recorder(-valid_metric['acc'], self.method.model, self.path)
             
         best_model_path = osp.join(self.path, 'checkpoint.pth')
         self.method.model.load_state_dict(torch.load(best_model_path))

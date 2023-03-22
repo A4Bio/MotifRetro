@@ -60,6 +60,7 @@ class MotifRetro(Base_method):
                     att_dim = self.args.att_dim,
                     attention_dropout=self.args.attention_dropout,
                     temperature = self.args.temperature,
+                    scale_up = self.args.scale_up
                   ).to(self.device)
         
         model.to(self.device)

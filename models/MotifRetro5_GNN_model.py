@@ -109,6 +109,7 @@ class MotifRetro_model(nn.Module):
                  att_dim = 128,
                  attention_dropout = 0.1,
                  temperature = 1.0,
+                 scale_up = 4
     ):
         super(MotifRetro_model, self).__init__()
         self.prop2oh = feat_vocab['prop2oh']
@@ -153,6 +154,7 @@ class MotifRetro_model(nn.Module):
                                     att_heads = att_heads,
                                     att_dim = att_dim,
                                     attention_dropout=attention_dropout,
+                                    scale_up = scale_up
                                     )
         self.decoder = MeganDecoder(hidden_dim=hidden_dim, 
                                     bond_emb_dim=bond_emb_dim,
@@ -171,6 +173,7 @@ class MotifRetro_model(nn.Module):
                                     att_dim = att_dim,
                                     attention_dropout = attention_dropout,
                                     temperature = temperature,
+                                    scale_up = scale_up
                                     )
         
         self.graph_predictor = nn.Sequential(nn.Linear(2*hidden_dim, 128),

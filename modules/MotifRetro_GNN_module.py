@@ -93,8 +93,9 @@ class MultiHeadGraphConvLayer(jit.ScriptModule):
         self.att_dim = att_dim
 
         self.atoms_att = nn.Linear(input_dim, att_dim)
+        self.bonds_att = nn.Linear(input_dim, att_dim)
         self.v_layer = nn.Linear(input_dim, int(input_dim / att_heads))
-        self.final_att = nn.Linear(att_dim * 2 + bond_dim, att_heads)
+        self.final_att = nn.Linear(att_dim * 2 + att_dim, att_heads)
 
         self.conv_layer = nn.Linear(input_dim, output_dim)
         self.motif_gate = nn.Linear(input_dim, output_dim)
@@ -111,8 +112,8 @@ class MultiHeadGraphConvLayer(jit.ScriptModule):
 
     def forward(self, atom_feat, bond_feat, edge_idx, graph_id, apply_activation: bool = True):
         x_att = torch.relu(self.atoms_att(atom_feat))  # [N, att_dim]
-        
-        x_att = torch.cat([x_att[edge_idx[:,1]], x_att[edge_idx[:,0]], bond_feat], dim=-1)  # [E, 2 * att_dim + bond_dim]
+        e_att = torch.relu(self.bonds_att(bond_feat)) 
+        x_att = torch.cat([x_att[edge_idx[:,1]], x_att[edge_idx[:,0]], e_att], dim=-1)  # [E, 2 * att_dim + bond_dim]
         x_att = self.final_att(x_att)  # [E, att_heads]
         src, dst = edge_idx[:,0], edge_idx[:,1]  # [E], [E]
 

@@ -26,9 +26,9 @@ CUDA_VISIBLE_DEVICES=2 python main.py  --batch_size 128 --dropout 0.1 --temperat
 
 
 
-cd /xuyongjie/gaozhangyang/experiments/MotifRetro
+cd /gaozhangyang/experiments/MotifRetro
 conda activate equibind
-CUDA_VISIBLE_DEVICES=3 wandb agent motifretro/test-project/tr2bflef
+CUDA_VISIBLE_DEVICES=7 wandb agent motifretro/test-project/h6lm233g
 
 
 CUDA_VISIBLE_DEVICES=1 python main.py --epoch 50  --batch_size 128 --temperature 1 --lr 0.0005 --no_wandb 0 --ex_name check_performance

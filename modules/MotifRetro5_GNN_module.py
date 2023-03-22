@@ -21,52 +21,54 @@ def softmax(values, base, dim):
 
 
 class MultiHeadGraphConvLayer(nn.Module):
-    def __init__(self, bond_dim: int, input_dim: int, output_dim: int, residual: bool,
-                 att_heads: int = 8, att_dim: int = 64, attention_dropout=0.0):
+    def __init__(self, bond_dim: int, input_dim: int, output_dim: int,
+                 att_heads: int = 8, att_dim: int = 64, attention_dropout=0.0, scale_up=4):
         """
         需要添加nn.norm
         """
         super(MultiHeadGraphConvLayer, self).__init__()
         self.n_att = att_heads
         self.att_dim = att_dim
-        self.residual = residual
         if output_dim % att_heads != 0:
             raise ValueError(f"Output dimension ({output_dim} "
                              f"must be a multiple of number of attention heads ({att_heads}")
         
         # MPNN layer
-        self.mpnn_input = nn.Linear(2*input_dim, input_dim)
         self.atoms_att = nn.Linear(input_dim, att_dim)
+        self.bonds_att = nn.Linear(bond_dim, att_dim)
         self.v_layer = nn.Linear(input_dim, int(input_dim / att_heads))
-        self.final_att = nn.Linear(att_dim * 2 + bond_dim, att_heads)
-        self.conv_layer = nn.Sequential(nn.Linear(input_dim, input_dim),
-                                        nn.Dropout(attention_dropout))
-        self.graph_norm = GraphNorm(input_dim)
+        self.final_att = nn.Linear(att_dim * 3, att_heads)
+        self.conv_layer = nn.Sequential(
+                                    nn.Linear(input_dim, int(scale_up*input_dim)),
+                                    nn.Dropout(attention_dropout),
+                                    nn.ReLU(),
+                                    nn.Linear(int(scale_up*input_dim), input_dim))
+        # self.graph_norm = GraphNorm(input_dim)
         
-        # Synthon attention
-        self.synthon_input = nn.Linear(2*input_dim, input_dim)
-        self.synthon_attn = nn.Sequential(nn.Linear(input_dim, input_dim//2),
-                                          nn.ReLU(),
-                                          nn.Dropout(attention_dropout),
-                                          nn.Linear(input_dim//2, input_dim//2),
-                                          nn.ReLU())
+        # # Synthon attention
+        # self.synthon_input = nn.Linear(2*input_dim, input_dim)
+        # self.synthon_attn = nn.Sequential(nn.Linear(input_dim, input_dim//2),
+        #                                   nn.ReLU(),
+        #                                   nn.Dropout(attention_dropout),
+        #                                   nn.Linear(input_dim//2, input_dim//2),
+        #                                   nn.ReLU())
         
-        self.graph_attn = nn.Sequential(nn.Linear(input_dim, input_dim//2),
-                                          nn.ReLU(),
-                                          nn.Dropout(attention_dropout),
-                                          nn.Linear(input_dim//2, input_dim//2),
-                                          nn.ReLU())
+        # self.graph_attn = nn.Sequential(nn.Linear(input_dim, input_dim//2),
+        #                                   nn.ReLU(),
+        #                                   nn.Dropout(attention_dropout),
+        #                                   nn.Linear(input_dim//2, input_dim//2),
+        #                                   nn.ReLU())
         
-        self.gated_attn = nn.Linear(input_dim, input_dim)
+        # self.gated_attn = nn.Linear(input_dim, input_dim)
         
         # TemporalGate
         # self.gate_r = nn.Linear(2*input_dim, input_dim)
         # self.gate_z = nn.Linear(2*input_dim, input_dim)
         # self.gate_h = nn.Linear(2*input_dim, input_dim)
         
-        self.gate_r = nn.Linear(input_dim, input_dim)
-        self.gate_z = nn.Linear(input_dim, input_dim)
-        self.gate_h = nn.Linear(input_dim, input_dim)
+        self.gate_r = nn.Sequential(nn.Linear(input_dim, input_dim))
+        self.gate_z = nn.Sequential(nn.Linear(input_dim, input_dim))
+        self.gate_h = nn.Sequential(nn.Linear(input_dim, input_dim))
         
         # init.orthogonal_(self.gate_r.weight, gain=1)
         # init.orthogonal_(self.gate_z.weight, gain=1)
@@ -78,10 +80,10 @@ class MultiHeadGraphConvLayer(nn.Module):
         self.bond_layer = nn.Linear(input_dim + bond_dim, bond_dim)
     
     def MPNN(self, atom_feat, bond_feat, edge_idx, graph_id, not_padding, hidden_feat=None):
-        # atom_feat = self.mpnn_input(torch.cat([atom_feat, hidden_feat], dim=-1))
         atom_feat = torch.max(atom_feat, hidden_feat)
         x_att = torch.relu(self.atoms_att(atom_feat))  # [N, att_dim]
-        x_att = torch.cat([x_att[edge_idx[:,1]], x_att[edge_idx[:,0]], bond_feat], dim=-1)  # [E, 2 * att_dim + bond_dim]
+        e_att = torch.relu(self.bonds_att(bond_feat))
+        x_att = torch.cat([x_att[edge_idx[:,1]], x_att[edge_idx[:,0]], e_att], dim=-1)  # [E, 2 * att_dim + bond_dim]
         x_att = self.final_att(x_att)  # [E, att_heads]
         src, dst = edge_idx[:,0], edge_idx[:,1]  # [E], [E]
 
@@ -108,19 +110,26 @@ class MultiHeadGraphConvLayer(nn.Module):
             atom_feats[node_mask.view(-1)], 
             (sub_graph_id[node_mask.view(-1)]+1).long(), 
             dim=0, 
-            dim_size=int(sub_graph_id.max().item()+2))
+            dim_size=int(sub_graph_id.max().item()+2))[(sub_graph_id+1).long()]
         
-        synthon_attn = self.synthon_attn(synthon_feat)[(sub_graph_id+1).long()]
+        # synthon_attn = self.synthon_attn(synthon_feat)[(sub_graph_id+1).long()]
         
-        # graph attention
-        graph_feat = scatter_mean(
-            atom_feats[node_mask.view(-1)], 
-            graph_id[node_mask.view(-1)], 
-            dim=0,
-            dim_size=int(graph_id.max().item())+1)
-        graph_attn = self.graph_attn(graph_feat)[graph_id]
+        # # graph attention
+        # graph_feat = scatter_mean(
+        #     atom_feats[node_mask.view(-1)], 
+        #     graph_id[node_mask.view(-1)], 
+        #     dim=0,
+        #     dim_size=int(graph_id.max().item())+1)[graph_id]
+        # graph_attn = self.graph_attn(graph_feat)[graph_id]
         
-        gated_attn = self.gated_attn(torch.cat([synthon_attn, graph_attn], dim=-1))
+        # gated_attn = self.gated_attn(torch.cat([synthon_attn, graph_attn], dim=-1))
+        
+        if torch.isnan(synthon_feat.sum()):
+            print()
+        
+        synthon_feat = torch.nan_to_num(synthon_feat)
+        gated_attn = self.gated_attn(synthon_feat)
+        
         
         out = (atom_feats* F.sigmoid(gated_attn))*node_mask + atom_feats*(~node_mask)
         return out
@@ -148,17 +157,18 @@ class MultiHeadGraphConvLayer(nn.Module):
 class MeganEncoder(nn.Module):
     def __init__(self, hidden_dim: int, bond_emb_dim: int, n_encoder_conv: int = 4,
                  enc_residual: bool = True, enc_dropout: float = 0.0, level: str = 'atom', att_heads=8, att_dim=128, use_motif_feature=0,
-                 attention_dropout: float = 0.0):
+                 attention_dropout: float = 0.0, scale_up=4):
         super(MeganEncoder, self).__init__()
         self.n_conv = n_encoder_conv
-        self.residual = enc_residual
         self.level = level
         self.use_motif_feature = use_motif_feature
 
         self.conv_layers = []
         for i in range(self.n_conv):
-            conv = MultiHeadGraphConvLayer(bond_dim=bond_emb_dim, input_dim=hidden_dim,
-                                           output_dim=hidden_dim, residual=False, att_heads=att_heads, att_dim=att_dim, attention_dropout=attention_dropout)
+            conv = MultiHeadGraphConvLayer(bond_dim=bond_emb_dim, 
+                                           input_dim=hidden_dim,
+                                           output_dim=hidden_dim,  att_heads=att_heads, att_dim=att_dim, attention_dropout=attention_dropout,
+                                           scale_up=scale_up)
             self.conv_layers.append(conv)
             setattr(self, f'MultiHeadGraphConv_{i + 1}', conv)
         
@@ -176,7 +186,7 @@ class MeganEncoder(nn.Module):
         for i, conv in enumerate(self.conv_layers):
             atom_feats = conv.MPNN(atom_feats, bond_feats, edge_idx, graph_id, not_padding, temporal_feat) + conv.MPNN(atom_feats, bond_feats[x["edge_idx_remove_supernode"]], edge_idx[x["edge_idx_remove_supernode"]], graph_id, not_padding, temporal_feat)
             
-            atom_feats = conv.SynthonAttn(atom_feats, sub_graph_id, not_padding, graph_id, temporal_feat)
+            # atom_feats = conv.SynthonAttn(atom_feats, sub_graph_id, not_padding, graph_id, temporal_feat)
 
             atom_feats, bond_feats = conv.update_node_edge(atom_feats, bond_feats, edge_idx)
             atom_feats = atom_feats + prev_atom_feats
@@ -193,7 +203,7 @@ class MeganDecoder(nn.Module):
                  n_fc: int = 3, n_decoder_conv: int = 4, dec_residual: bool = True, bond_atom_dim: int = 32,
                  atom_fc_hidden_dim: int = 256, bond_fc_hidden_dim: int = 256, dec_dropout: float = 0.0,
                  dec_hidden_dim: int = 0, dec_att_heads: int = 0, use_motif_action: bool = False,
-                 predict_atom_num: bool = False, att_dim=128, att_heads = 8, attention_dropout = 0.1, temperature = 1.0):
+                 predict_atom_num: bool = False, att_dim=128, att_heads = 8, attention_dropout = 0.1, temperature = 1.0, scale_up=4):
         super(MeganDecoder, self).__init__()
         if dec_hidden_dim == 0:
             dec_hidden_dim = hidden_dim
@@ -207,7 +217,6 @@ class MeganDecoder(nn.Module):
         self.hidden_dim = hidden_dim
         self.n_fc = n_fc
         self.n_conv = n_decoder_conv
-        self.residual = dec_residual
         self.atom_fc_hidden_dim = atom_fc_hidden_dim
         self.bond_fc_hidden_dim = bond_fc_hidden_dim
         self.bond_atom_dim = bond_atom_dim
@@ -234,9 +243,9 @@ class MeganDecoder(nn.Module):
             input_dim = hidden_dim if i == 0 else dec_hidden_dim
             output_dim = hidden_dim if i == self.n_conv - 1 else dec_hidden_dim
             if dec_att_heads == 0:
-                conv = MultiHeadGraphConvLayer(bond_dim=bond_emb_dim, input_dim=input_dim, output_dim=output_dim,residual=False, att_dim=att_dim, attention_dropout=attention_dropout)
+                conv = MultiHeadGraphConvLayer(bond_dim=bond_emb_dim, input_dim=input_dim, output_dim=output_dim, att_dim=att_dim, attention_dropout=attention_dropout, scale_up=scale_up)
             else:
-                conv = MultiHeadGraphConvLayer(bond_dim=bond_emb_dim, input_dim=input_dim, output_dim=output_dim,residual=False, att_heads=dec_att_heads, att_dim=att_dim, attention_dropout=attention_dropout)
+                conv = MultiHeadGraphConvLayer(bond_dim=bond_emb_dim, input_dim=input_dim, output_dim=output_dim, att_heads=dec_att_heads, att_dim=att_dim, attention_dropout=attention_dropout, scale_up=scale_up)
 
             self.conv_layers.append(conv)
             setattr(self, f'MultiHeadGraphConv_{i + 1}', conv)
@@ -304,7 +313,7 @@ class MeganDecoder(nn.Module):
         for i, conv in enumerate(self.conv_layers):
             atom_feats = conv.MPNN(atom_feats, bond_feats, edge_idx, graph_id,not_padding, hidden_feat)+ conv.MPNN(atom_feats, bond_feats[x["edge_idx_remove_supernode"]], edge_idx[x["edge_idx_remove_supernode"]], graph_id, not_padding, hidden_feat)
             
-            atom_feats = conv.SynthonAttn(atom_feats, sub_graph_id, not_padding, graph_id, hidden_feat)
+            # atom_feats = conv.SynthonAttn(atom_feats, sub_graph_id, not_padding, graph_id, hidden_feat)
             
             hidden_feat = conv.TemporalGate(atom_feats, hidden_feat)
             
