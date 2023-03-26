@@ -95,7 +95,7 @@ class Megan(nn.Module):
             self.bond_embedding = nn.Linear(total_bond_oh_len, bond_emb_dim)
         
         if self.use_degree_feat:
-            self.degree_embedding = nn.Embedding(10, hidden_dim)
+            self.degree_embedding = nn.Embedding(100, hidden_dim)
 
 
 
@@ -186,7 +186,7 @@ class Megan(nn.Module):
         steps_range = range(1, n_steps) if given_reaction_center else range(n_steps)
         for step_i in steps_range:
             step_batch = batch[step_i]
-            step_results = self.forward_step_sparse(step_batch, state_dict=state_dict)
+            step_results = self.forward_one_step(step_batch, state_dict=state_dict)
             state_dict = {
                 'state': step_results['state'],
             }
@@ -235,7 +235,7 @@ class Megan(nn.Module):
             
         
     
-    def forward_step_sparse(self, step_batch: dict, state_dict=Optional[dict],
+    def forward_one_step(self, step_batch: dict, state_dict=Optional[dict],
                      first_step: Optional[List[int]] = None) -> dict:
         step_batch = self._preprocess_sparse(step_batch)
 

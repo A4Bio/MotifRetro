@@ -116,8 +116,12 @@ class MultiHeadGraphConvLayer(jit.ScriptModule):
         x_att = torch.cat([x_att[edge_idx[:,1]], x_att[edge_idx[:,0]], e_att], dim=-1)  # [E, 2 * att_dim + bond_dim]
         x_att = self.final_att(x_att)  # [E, att_heads]
         src, dst = edge_idx[:,0], edge_idx[:,1]  # [E], [E]
+        
 
+        assert src.shape[0] == x_att.shape[0]
+        assert src.max()<x_att.shape[0]
         att = scatter_softmax(x_att, src, dim=0) # 在evaluation时这一行可能报错
+
         out = scatter_sum((att.unsqueeze(1) * self.v_layer(atom_feat)[dst].unsqueeze(2)), src, dim=0, dim_size=atom_feat.shape[0])
         out = self.dropout(out)
         out = self.conv_layer(out.view(out.shape[0], -1))
@@ -415,7 +419,7 @@ class MeganDecoder(nn.Module):
                                      bond_feat_idx,
                                      bond_action_type]).long(),
                    "bond_action":bond_actions_feat.view(-1),
-                   "bond_mask": x['bond_action_mask'].view(-1)}
+                   "bond_mask": x['bond_action_mask'].reshape(-1)}
         
         if x.get("atom_target") is not None:
             scores["atom_target"] = x['atom_target']

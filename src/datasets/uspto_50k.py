@@ -203,6 +203,8 @@ class Uspto50k_torch(Dataset_torch):
             for key, val in feat_vocab['prop2oh']['bond'][prop_name].items():
                 if key in ["self", "supernode"]:
                     new_dict[key] = val
+                elif prop_name == "bond_length":
+                    new_dict[key] = float(key)
                 else:
                     new_dict[int(key)] = val
                     

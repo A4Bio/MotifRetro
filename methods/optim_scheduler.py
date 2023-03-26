@@ -2,6 +2,7 @@
 from torch import optim
 from torch.optim.lr_scheduler import LambdaLR
 
+
 def get_linear_schedule_with_warmup(optimizer, num_warmup_steps, num_training_steps, last_epoch=-1):
     """
     Create a schedule with a learning rate that decreases linearly from the initial lr set in the optimizer to 0, after
@@ -30,10 +31,25 @@ def get_linear_schedule_with_warmup(optimizer, num_warmup_steps, num_training_st
 
     return LambdaLR(optimizer, lr_lambda, last_epoch)
 
-def get_optim_scheduler(lr, epoch, model, steps_per_epoch):
-    optimizer = optim.AdamW(filter(lambda p:p.requires_grad,model.parameters()), lr=lr, weight_decay=0.0)
-    # optimizer = optim.Adam(model.parameters(), lr=lr)
-    # scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=lr, total_steps=epoch * steps_per_epoch)
-    warmup_steps = int(epoch * 0.1)
-    scheduler = get_linear_schedule_with_warmup(optimizer, warmup_steps, epoch)
+def get_optim_scheduler(lr, epoch, model, steps_per_epoch, optim_name='AdamW', schdular_name='linear_warmup'):
+    if optim_name == 'AdamW':
+        optimizer = optim.AdamW(filter(lambda p:p.requires_grad,model.parameters()), lr=lr, weight_decay=0.0)
+        
+    if optim_name == 'SGD':
+        optimizer = optim.SGD(model.parameters(), lr=lr)
+    
+    if optim_name == 'Lion':
+        from lion_pytorch import Lion
+        optimizer = Lion(model.parameters(), lr=lr)
+    
+    if schdular_name == 'linear_warmup':
+        warmup_steps = int(epoch * 0.1)
+        scheduler = get_linear_schedule_with_warmup(optimizer, warmup_steps, epoch)
+    
+    if schdular_name == 'onecycle':
+        scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=lr, total_steps=epoch * steps_per_epoch)
+    
+    if schdular_name == 'cosine':
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epoch*steps_per_epoch, eta_min=0)
+    
     return optimizer, scheduler

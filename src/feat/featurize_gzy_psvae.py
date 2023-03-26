@@ -917,6 +917,10 @@ def featurize_parallel(params) -> int:
         if (target_mol is None) or (source_mol is None):
             n_unparsed += 1
             continue
+        
+        # # for debug
+        # training_samples, final_smi = gen_training_samples(source_mol,target_mol, n_max_steps,
+        #                                                         feat_vocab=feat_vocab, use_motif_action=use_motif_action, vocab_path=vocab_path)
 
         try:
             training_samples, final_smi = gen_training_samples(source_mol,target_mol, n_max_steps,

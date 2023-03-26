@@ -182,7 +182,9 @@ class AddAtomAction(ReactionAction):   # 生成 Atom 时是连 bond 一起生成
         self.detach = detach
 
         self.new_a = self._gen_new_atom()
-        self.new_atom_features = get_atom_features(self.new_a, list(self.prop2oh['atom'].keys()), atom_prop2oh=self.prop2oh['atom'])
+        
+        used_atom_props = ['atomic_num', 'formal_charge', 'chiral_tag', 'num_explicit_hs', 'is_aromatic', 'is_supernode', 'is_edited']
+        self.new_atom_features = get_atom_features(self.new_a, used_atom_props, atom_prop2oh=self.prop2oh['atom'])
 
         # new atom has 1 neighbour when its created
         self.degree_ind = self.feat_vocab['atom_feat_ind'].get('degree', -1)
@@ -355,11 +357,13 @@ class AddMotifAction(ReactionAction):   # TODO: Motif is a combination of a set 
         
         for bond in self.motifmol.GetBonds():
             bond.SetBoolProp('is_edited', True)
+            
+        used_atom_props = ['atomic_num', 'formal_charge', 'chiral_tag', 'num_explicit_hs', 'is_aromatic', 'is_supernode', 'is_edited']
         
         self.new_atom_features = {}
         for i, new_atom in enumerate(self.motifmol.GetAtoms()):
             if new_atom.GetAtomicNum()!=0:
-                atom_feat = get_atom_features(new_atom, list(self.prop2oh['atom'].keys()), atom_prop2oh=self.prop2oh['atom'])
+                atom_feat = get_atom_features(new_atom, used_atom_props, atom_prop2oh=self.prop2oh['atom'])
                 
                 degree_ind = feat_vocab['atom_feat_ind'].get('degree', -1)
                 if degree_ind != -1:
@@ -585,12 +589,13 @@ class ReplaceMotifAction:
         
         for bond in self.motifmol.GetBonds():
             bond.SetBoolProp('is_edited', True)
-            
+        
+        used_atom_props = ['atomic_num', 'formal_charge', 'chiral_tag', 'num_explicit_hs', 'is_aromatic', 'is_supernode', 'is_edited']
         self.new_atom_features = {}
         for i, new_atom in enumerate(self.motifmol.GetAtoms()):
             
             if new_atom.GetAtomicNum()!=0:
-                atom_feat = get_atom_features(new_atom, list(self.prop2oh['atom'].keys()), atom_prop2oh=self.prop2oh['atom'])
+                atom_feat = get_atom_features(new_atom, used_atom_props, atom_prop2oh=self.prop2oh['atom'])
                 
                 degree_ind = feat_vocab['atom_feat_ind'].get('degree', -1)
                 if degree_ind != -1:
@@ -796,7 +801,9 @@ class AddRingAction(ReactionAction):
         new_a = Chem.Atom(6)
         new_a.SetIsAromatic(True)
         new_a.SetBoolProp('is_edited', True)
-        self.new_atom_features = get_atom_features(new_a, list(self.prop2oh['atom'].keys()), atom_prop2oh=self.prop2oh['atom'])
+        
+        used_atom_props = ['atomic_num', 'formal_charge', 'chiral_tag', 'num_explicit_hs', 'is_aromatic', 'is_supernode', 'is_edited']
+        self.new_atom_features = get_atom_features(new_a, used_atom_props, atom_prop2oh=self.prop2oh['atom'])
 
         b_type = Chem.rdchem.BondType.AROMATIC
         self.new_bond_features = [self.prop2oh['bond'][key][val] for key, val in

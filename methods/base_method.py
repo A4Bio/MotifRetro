@@ -13,7 +13,7 @@ class Base_method(object):
 
     def _init_optimizer(self, steps_per_epoch):
         # print("lr type", type(self.args.lr))
-        return get_optim_scheduler(self.args.lr, self.args.epoch, self.model, steps_per_epoch)
+        return get_optim_scheduler(self.args.lr, self.args.epoch, self.model, steps_per_epoch, self.args.optim_name, self.args.schdular_name)
 
     def train_one_epoch(self, train_loader, **kwargs): 
         '''

@@ -513,6 +513,8 @@ class BeamSearch:
             else:
                 model_batch[k] = v
 
+        # if tuple(model_batch['edge_idx'].shape) == (5432, 2):
+        #     print()
         model_step_results = model.forward_one_step(step_batch=model_batch, state_dict=state_dict)
 
         batch_actions = get_best_actions(model_batch, model_step_results['pred_scores'], self.beam_size)

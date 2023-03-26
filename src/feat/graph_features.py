@@ -5,6 +5,7 @@ Atom and Bond features used in graph reaction representations
 
 import logging
 from typing import List, Optional
+from rdkit.Chem import AllChem
 
 from rdkit.Chem.rdchem import Bond, Atom
 
@@ -33,6 +34,17 @@ logger = logging.getLogger(__name__)
 # ATOM_PROP2OH = dict((k, (dict((ap, i + 1) for i, ap in enumerate(vals)))) for k, vals in ATOM_PROPS.items())
 # BOND_PROP2OH = dict((k, (dict((ap, i + 1) for i, ap in enumerate(vals)))) for k, vals in BOND_PROPS.items())
 
+def bond_length(bond):
+    """Bond length"""
+    mol = bond.GetOwningMol()
+    AllChem.Compute2DCoords(mol)
+    if mol.GetNumConformers() == 0:
+        mol.Compute2DCoords()
+    conformer = mol.GetConformer()
+    h = conformer.GetAtomPosition(bond.GetBeginAtomIdx())
+    t = conformer.GetAtomPosition(bond.GetEndAtomIdx())
+    return h.Distance(t)
+
 def try_get_bond_feature(bond: Bond, feat_key: str):
     try:
         if feat_key == 'bond_type':
@@ -45,6 +57,10 @@ def try_get_bond_feature(bond: Bond, feat_key: str):
             return int(bond.GetStereo())
         elif feat_key == 'is_aromatic':
             return int(bond.GetIsAromatic())
+        elif feat_key == 'is_conjugated': # new_feats
+            return int(bond.GetIsConjugated())
+        elif feat_key == 'bond_length': # new_feats
+            return bond_length(bond)
         else:
             raise KeyError(f"Unknown bond feature: {feat_key}")
     except RuntimeError as e:
@@ -76,6 +92,24 @@ def try_get_atom_feature(atom: Atom, feat_key: str):
             return int(atom.GetIsAromatic())
         elif feat_key == 'num_explicit_hs':
             return atom.GetNumExplicitHs()
+        elif feat_key == 'radical_electrons': # new feats
+            return atom.GetNumRadicalElectrons()
+        elif feat_key == 'total_num_hs': # new feats
+            return atom.GetTotalNumHs()
+        elif feat_key == 'total_valence': # new feats
+            return atom.GetTotalValence()
+        elif feat_key == 'hybridization': # new feats
+            return atom.GetHybridization()
+        elif feat_key == 'is_in_ring': # new feats
+            return atom.IsInRing()
+        elif feat_key == 'is_in_ring3': # new feats
+            return atom.IsInRingSize(3)
+        elif feat_key == 'is_in_ring4': # new feats
+            return atom.IsInRingSize(4)
+        elif feat_key == 'is_in_ring5': # new feats
+            return atom.IsInRingSize(5)
+        elif feat_key == 'is_in_ring6': # new feats
+            return atom.IsInRingSize(6)
         else:
             raise KeyError(f"Unknown atom feature: {feat_key}")
     except RuntimeError as e:
@@ -111,7 +145,9 @@ def get_bond_features(bond: Bond, bond_oh_keys: List[str], used_oh_keys: Optiona
     for key, val in zip(bond_oh_keys, feat):
         if key not in bond_prop2oh:
             continue
-        if val not in bond_prop2oh[key]:
+        if key == 'bond_length':
+            result.append(val)
+        elif val not in bond_prop2oh[key]:
             logger.debug(f'Unknown {key} value: {val}')
             result.append(0)
         else:

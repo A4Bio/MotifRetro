@@ -42,15 +42,25 @@ ATOM_PROPS = {
     'num_explicit_hs': set(),
     'is_aromatic': set(),
     'is_supernode': {0, 1},  
-    'is_edited': {0, 1},  # we mark atoms that have been added/edited by the model
-    # 'is_reactant': {0, 1}  # this feature is used to mark reactants in "SEPARATED" variant of forward prediction
+    'is_edited': {0, 1},  # we mark atoms that have been added/edited by the 
+    # 'radical_electrons': set(), # new feat
+    # 'total_num_hs': set(),# new feat
+    # 'total_valence': set(),# new feat
+    # 'hybridization': set(),# new feat
+    # 'is_in_ring': {0,1},# new feat
+    # 'is_in_ring3': {0,1},# new feat
+    # 'is_in_ring4': {0,1},# new feat
+    # 'is_in_ring5': {0,1},# new feat
+    # 'is_in_ring6': {0,1}# new feat
 }
 
 BOND_PROPS = {
     'bond_type': {'supernode', 'self'},
     'bond_stereo': set(),
-    # 'is_aromatic': set(),
+    'is_aromatic': set(),
     'is_edited': {0, 1},
+    # 'is_conjugated': set(),# new feat
+    # 'bond_length': set()
 }
 
 # ATOM_PROP2OH = dict((k, (dict((ap, i + 1) for i, ap in enumerate(vals)))) for k, vals in ATOM_PROPS.items())
@@ -153,7 +163,6 @@ class MeganTrainingSamplesFeaturizer(ReactionFeaturizer):
         # shuffle indices for featurization in multiple threads
         np.random.shuffle(all_inds)
 
-        
 
         chunk_size = int(len(all_inds) / self.n_jobs)
         chunk_ends = [chunk_size * i for i in range(self.n_jobs + 1)]
@@ -185,7 +194,7 @@ class MeganTrainingSamplesFeaturizer(ReactionFeaturizer):
                         prop_dict[type_key][key] = set()
                     prop_dict[type_key][key].update(values)  
 
-
+        # prop_dict['bond']['bond_length'] = set([1.5, 3.2])
 
         # counting the number of types of each feature
         atom_feat_counts = ', '.join(['{:s}: {:d}'.format(key, len(values))  # 'atomic_num: 16, formal_charge: 3, chiral_tag: 3, num_explicit_hs: 4, is_aromatic: 2, is_supernode: 2, is_edited: 2, is_reactant: 2'

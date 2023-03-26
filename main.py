@@ -82,11 +82,11 @@ class Exp:
             # from methods.MotifRetro2_GNN import MotifRetro
             # self.method = MotifRetro(self.args, self.device, steps_per_epoch, self.train_loader.dataset.feat_vocab, self.train_loader.dataset.action_vocab)
             
-            # from methods.MotifRetro_GNN import MotifRetro
-            # self.method = MotifRetro(self.args, self.device, steps_per_epoch, self.train_loader.dataset.feat_vocab, self.train_loader.dataset.action_vocab)
-            
-            from methods.MotifRetro5_GNN import MotifRetro
+            from methods.MotifRetro_GNN import MotifRetro
             self.method = MotifRetro(self.args, self.device, steps_per_epoch, self.train_loader.dataset.feat_vocab, self.train_loader.dataset.action_vocab)
+            
+            # from methods.MotifRetro5_GNN import MotifRetro
+            # self.method = MotifRetro(self.args, self.device, steps_per_epoch, self.train_loader.dataset.feat_vocab, self.train_loader.dataset.action_vocab)
 
     def _get_data(self):
         self.train_loader = get_dataset(args=self.args, data_name=self.args.dataset_key, 
@@ -152,6 +152,9 @@ class Exp:
                 print_log('Epoch: {}, Steps: {} | Train Loss: {:.4f}  Valid Loss: {:.4f}\n'.format(epoch + 1, len(self.train_loader), train_metric['loss'], valid_metric['loss']))
                 recorder(-valid_metric['acc'], self.method.model, self.path)
             
+            if self.method.break_flag:
+                break
+            
         best_model_path = osp.join(self.path, 'checkpoint.pth')
         self.method.model.load_state_dict(torch.load(best_model_path))
 
@@ -186,7 +189,7 @@ if __name__ == '__main__':
     config.update(tuner_params)
     print(config)
     
-    # os.environ["WANDB_DISABLED"] = "true"
+    os.environ["WANDB_DISABLED"] = "true"
     if not args.no_wandb:
         os.environ["WANDB_API_KEY"] = "ddb1831ecbd2bf95c3323502ae17df6e1df44ec0"
         wandb.init(project="test-project", entity="motifretro", config=config, name=args.ex_name)
@@ -196,7 +199,7 @@ if __name__ == '__main__':
     exp = Exp(args)
     # args.only_test = True
 
-    # exp.method.model.load_state_dict(torch.load("/xuyongjie/gaozhangyang/experiments/MotifRetro/results/temporal_GRU_graphnrom2023-03-12 02:00:23.176755/checkpoint.pth"))
+    # exp.method.model.load_state_dict(torch.load("/gaozhangyang/experiments/MotifRetro/results/search2023-03-22 21:57:17.241017/checkpoint.pth"))
     
 
     if not args.only_test:

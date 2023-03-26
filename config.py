@@ -13,7 +13,7 @@ def create_parser():
     
     parser.add_argument('--ex_name', default='search', type=str)
     parser.add_argument('--dataset_key', default='uspto_50k', type=str, choices=["uspto_50k", "uspto_hard"])
-    parser.add_argument('--featurizer_key', default='uspto_50k_motiftree_bfs_recheck', type=str)
+    parser.add_argument('--featurizer_key', default='add_feats', type=str)
 
     # dataset parameters
     parser.add_argument('--data_path', default='/gaozhangyang/experiments/MotifRetro/data')
@@ -32,11 +32,14 @@ def create_parser():
     parser.add_argument('--useAttachAction', default=1, type=int)
     
     # Training parameters
-    parser.add_argument('--epoch', default=50, type=int, help='end epoch')
+    parser.add_argument('--epoch', default=100, type=int, help='end epoch')
     parser.add_argument('--log_step', default=1, type=int)
-    parser.add_argument('--lr', default=0.0005, type=float, help='Learning rate')
+    parser.add_argument('--lr', default=0.0001, type=float, help='Learning rate')
     parser.add_argument('--batch_size', default=128, type=int)
     parser.add_argument('--patience', default=10, type=int)
+    parser.add_argument('--optim_name', default="AdamW", choices=['AdamW', 'SGD', 'Lion'])
+    parser.add_argument('--schdular_name', default="linear_warmup", choices=['linear_warmup', 'onecycle', 'cosine'])
+    
 
     # Evaluation parameters
     parser.add_argument('--n_max_atoms', default=100, type=int)
@@ -50,20 +53,20 @@ def create_parser():
     parser.add_argument('--bond_emb_dim', default=1024, type=int)
     parser.add_argument('--atom_feature_keys', default=['is_supernode', 'atomic_num', 'formal_charge', 'chiral_tag', 'num_explicit_hs', 'is_aromatic'], type=list)
     parser.add_argument('--bond_feature_keys', default=['bond_type', 'bond_stereo'], type=list)
-    parser.add_argument('--n_encoder_conv', default=4, type=int)
+    parser.add_argument('--n_encoder_conv', default=6, type=int)
     parser.add_argument('--scale_up', default=1, type=float)
     parser.add_argument('--enc_residual', default=True, type=bool)
-    parser.add_argument('--enc_dropout', default=0.4, type=float)
-    parser.add_argument('--n_decoder_conv', default=3, type=int)
+    parser.add_argument('--enc_dropout', default=0.1, type=float)
+    parser.add_argument('--n_decoder_conv', default=2, type=int)
     parser.add_argument('--dec_residual', default=True, type=bool)
     parser.add_argument('--n_fc', default=1, type=int)
     parser.add_argument('--atom_fc_hidden_dim', default=128, type=int)
     parser.add_argument('--bond_fc_hidden_dim', default=128, type=int)
     parser.add_argument('--bond_atom_dim', default=128, type=int)
-    parser.add_argument('--dec_dropout', default=0.2, type=float)
+    parser.add_argument('--dec_dropout', default=0.5, type=float)
     parser.add_argument('--att_heads', default=8, type=int)
     parser.add_argument('--att_dim', default=128, type=int)
-    parser.add_argument('--attention_dropout', default=0.15, type=float)
+    parser.add_argument('--attention_dropout', default=0.1, type=float)
 
     parser.add_argument('--topk', default=50, type=int)
     parser.add_argument('--use_degree_feat', default=1, type=int)
@@ -77,7 +80,7 @@ def create_parser():
 
     args = parser.parse_args()
     args.ex_name += str(datetime.now())
-    args.featurizer_key = args.vocab_path
+    # args.featurizer_key = args.vocab_path
     args.vocab_path = os.path.join("/gaozhangyang/experiments/MotifRetro/data/uspto_50k",  args.vocab_path+".json")
     args.bond_emb_dim = args.hidden_dim
     args.n_decoder_conv = 8-args.n_encoder_conv

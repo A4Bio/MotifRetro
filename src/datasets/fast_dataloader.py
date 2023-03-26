@@ -42,6 +42,7 @@ class DataLoaderX(DataLoader):
         if self.batch is None:
             return None
 
+        # 提前将变量塞进GPU
         with torch.cuda.stream(self.stream):
             for i in range(len(self.batch[0])):
                 for k in self.batch[0][i]:

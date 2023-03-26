@@ -30,6 +30,7 @@ class MotifRetro(Base_method):
         self.mix_precision = False
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer, self.scheduler = self._init_optimizer(steps_per_epoch)
+        self.break_flag = False
 
     def _build_model(self, feat_vocab, action_vocab):
         
@@ -253,6 +254,12 @@ class MotifRetro(Base_method):
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1)
                 self.optimizer.step()
+                
+                if torch.isnan(loss):
+                    self.break_flag = True
+                
+                if self.break_flag:
+                    break
             
             all_correct += correct_actions
             all_in_correct += incorrect_actions
@@ -283,12 +290,16 @@ class MotifRetro(Base_method):
             all_in_correct += incorrect_actions
 
             metric_list.append(batch_metric)
+            if self.break_flag:
+                break
 
         all_correct = dict(Counter(all_correct))
         all_in_correct = dict(Counter(all_in_correct))
 
         epoch_metric = {}
         for action_tuple in self.action_vocab["action_freq"].keys():
+            if action_tuple not in [('change_bond', (None, None)), ('stop', None)]:
+                continue
             this_correct = 0
             this_in_correct = 0
             if action_tuple in all_correct:
@@ -298,9 +309,9 @@ class MotifRetro(Base_method):
                 this_in_correct = all_in_correct[action_tuple]
         
             try:
-                epoch_metric[f'act_{str(action_tuple)}'] = this_correct/ (this_correct + this_in_correct)  
+                epoch_metric[f'acc_{str(action_tuple)}'] = this_correct/ (this_correct + this_in_correct)  
             except:
-                epoch_metric[f'act_{str(action_tuple)}'] = 0  # [0, 0, None]
+                epoch_metric[f'acc_{str(action_tuple)}'] = 0  # [0, 0, None]
 
         for k in batch_metric.keys():
             epoch_metric[k] = np.mean([one[k] for one in metric_list])
@@ -412,8 +423,7 @@ class MotifRetro(Base_method):
                                     base_action_masks=base_action_masks, max_atoms=self.args.n_max_atoms,
                                     reaction_types=reaction_types,
                                     feat_vocab=self.feat_vocab,
-                                    action_vocab=self.action_vocab, 
-                                    sparse=self.args.sparse)
+                                    action_vocab=self.action_vocab)
 
             with torch.no_grad():
                 beam_search_results = eval_model.beamsearch(input_mols)
