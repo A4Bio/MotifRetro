@@ -20,10 +20,6 @@ Is there a unified framework for graph-based retrosynthesis prediction? Through 
 The overall framework. MotifRetro comprises two main components: RetroBPE, which controls the trade-off between combinability and consistency to construct motif-trees, and a motif editing model. We introduce a novel LG-EGAT module in the motif editing model to dynamically add motifs to the current molecule. At each timestamp, the model predicts an action and applies it to the molecule to generate a new molecule for the next prediction until the "Stop" action is reached.
 
 ## 2. Example of edit path
-- **Check the edit path generation algorithm**
-  ```
-    ./src/feat/test_featureizer.py
-  ```
 
 <figure class="half" style="display:flex">
 <table>
