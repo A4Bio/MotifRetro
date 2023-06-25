@@ -17,3 +17,4 @@ data.zip
 wandb/
 /best_results
 valid-*.txt
+/*.sh

@@ -678,11 +678,6 @@ class RetroBPE:
             simplicity_score = simplicity_scores[i]
             generality_score = generality_scores[i]
             self.save(motif_trees, vocab_path, f"{simplicity_score:.4f}_{generality_score:.4f}")
-        
-        
-
-        
-
 
 
 

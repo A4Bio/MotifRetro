@@ -24,6 +24,7 @@ from collections import Counter
 class MotifRetro(Base_method):
     def __init__(self, args, device, steps_per_epoch, feat_vocab, action_vocab):
         Base_method.__init__(self, args, device, steps_per_epoch)
+        self.args = args
         self.feat_vocab = feat_vocab
         self.action_vocab = action_vocab
         self.model = self._build_model(feat_vocab, action_vocab)
@@ -412,7 +413,7 @@ class MotifRetro(Base_method):
                 input_mols.append(input_mol)
                 target_mols.append(target_mol)
 
-            if 'reaction_type_id' in batch:
+            if self.args.reaction_type_given:
                 reaction_types = batch['reaction_type_id']
             else:
                 reaction_types = None
@@ -424,9 +425,15 @@ class MotifRetro(Base_method):
                                     reaction_types=reaction_types,
                                     feat_vocab=self.feat_vocab,
                                     action_vocab=self.action_vocab)
+            
+            # with torch.no_grad():
+            #     beam_search_results = eval_model.beamsearch(input_mols)
 
-            with torch.no_grad():
-                beam_search_results = eval_model.beamsearch(input_mols)
+            try:
+                with torch.no_grad():
+                    beam_search_results = eval_model.beamsearch(input_mols)
+            except:
+                continue
 
             # with open(pred_path, 'a') as fp:
             for j in range(len(batch['source_smi'])):
@@ -498,7 +505,6 @@ class MotifRetro(Base_method):
             print(f'Targets with < {self.args.beam_size} predictions: {less_preds}')
             print(f'Targets with zero predictions: {zero_preds}')
             print()
-            # break
 
 
         total_time = time.time() - start_time
@@ -512,11 +518,12 @@ class MotifRetro(Base_method):
         zero_preds = '{:.4f}%'.format(100 * np.sum(n_preds == 0) / n_samples)
 
         return {
-            "TOP1": accs[0] * 100 / n_samples,
-            "TOP5": accs[4] * 100 / n_samples if self.args.beam_size >= 5 else None,
-            "TOP10": accs[9] * 100 / n_samples if self.args.beam_size >= 10 else None,
-            "TOP20": accs[19] * 100 / n_samples if self.args.beam_size >= 20 else None,
-            "TOP50": accs[49] * 100 / n_samples if self.args.beam_size >= 50 else None,
+            "TOP1": top_k[0] * 100 / n_samples,
+            "TOP3": top_k[2] * 100 / n_samples if self.args.beam_size >= 5 else None,
+            "TOP5": top_k[4] * 100 / n_samples if self.args.beam_size >= 5 else None,
+            "TOP10": top_k[9] * 100 / n_samples if self.args.beam_size >= 10 else None,
+            "TOP20": top_k[19] * 100 / n_samples if self.args.beam_size >= 20 else None,
+            "TOP50": top_k[49] * 100 / n_samples if self.args.beam_size >= 50 else None,
         }
 
         

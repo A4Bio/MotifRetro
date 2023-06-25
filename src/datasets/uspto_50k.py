@@ -369,6 +369,7 @@ class USPTO50K_torch_test(Dataset_torch):
         
         self.product = list(self.data['product'][split_ind])
         self.substrates = list(self.data['substrates'][split_ind])
+        self.reaction_type = list(self.data['reaction_type_id'][split_ind])
         with open(os.path.join(data_dir, "uspto_50k", "adding_motif_trees.json"), "r") as f:
             all_trees = json.load(f)
         
@@ -384,9 +385,11 @@ class USPTO50K_torch_test(Dataset_torch):
         # idx = 0
         target_smi = self.substrates[idx]
         source_smi = self.product[idx]
+        reaction_type_id = self.reaction_type[idx]
         # source_smi = '[OH:1][CH2:2][c:3]1[n:4][c:5]2[c:6]([Cl:7])[n:8][cH:9][n:10][c:11]2[n:12]1[CH2:13][C:14]([CH3:15])([CH3:16])[CH3:17]'
         # target_smi = '[O:1]([CH2:2][c:3]1[n:4][c:5]2[c:6]([Cl:7])[n:8][cH:9][n:10][c:11]2[n:12]1[CH2:13][C:14]([CH3:15])([CH3:16])[CH3:17])[C:19]([CH3:18])=[O:20]'
         return {
             'source_smi': source_smi,
             'target_smi': target_smi,
+            "reaction_type_id": reaction_type_id
         }

@@ -82,9 +82,11 @@ def to_one_hot(x, dims: int):
 
 
 def merge_eval_graph(graph_list, feat_vocab):
-        # if not self.args.use_past_values:
-        #     graph_list = [graph for graph in graph_list if graph is not None]
-
+        if graph_list[0]['reaction_type'] is not None:
+            reaction_type = torch.tensor([one["reaction_type"] for one in graph_list if one is not None])
+        else:
+            reaction_type = None
+        
         num_nodes = [one["node_features"].shape[0] if one is not None else 0 for one in graph_list ]
         shift = np.cumsum([0, *num_nodes]).tolist()
 
@@ -171,22 +173,36 @@ def merge_eval_graph(graph_list, feat_vocab):
         # bond_action_mask = bond_action_mask[edge_idx_remove_supernode_idx]
 
 
-        return {"graph_id": graph_id,
-                "atom_feats": atom_feats,
-                "bond_feats": bond_feats,
-                "atom_mask": atom_mask,
-                "padding_idx": padding_idx.to(device),
-                "supernode_idx": supernode_idx.to(device),
-                "degree": degree.to(device),
-                # "bond_action_idx": bond_action_idx,
-                "atom_action_mask": atom_action_mask,
-                "bond_action_mask": bond_action_mask,
-                "sub_graph_id":sub_graph_id.to(device),
-                # "action_ind":action_ind,
-                "edge_idx": edge_idx,
-                "edge_idx_remove_supernode": edge_idx_remove_supernode_idx,
-                # "target": target,
-        }
+        if reaction_type is not None:
+            return {"graph_id": graph_id,
+                    "atom_feats": atom_feats,
+                    "bond_feats": bond_feats,
+                    "atom_mask": atom_mask,
+                    "padding_idx": padding_idx.to(device),
+                    "supernode_idx": supernode_idx.to(device),
+                    "degree": degree.to(device),
+                    "atom_action_mask": atom_action_mask,
+                    "bond_action_mask": bond_action_mask,
+                    "sub_graph_id":sub_graph_id.to(device),
+                    "edge_idx": edge_idx,
+                    "edge_idx_remove_supernode": edge_idx_remove_supernode_idx,
+                    "reaction_type": reaction_type.to(device),
+            }
+        else:
+            return {"graph_id": graph_id,
+                    "atom_feats": atom_feats,
+                    "bond_feats": bond_feats,
+                    "atom_mask": atom_mask,
+                    "padding_idx": padding_idx.to(device),
+                    "supernode_idx": supernode_idx.to(device),
+                    "degree": degree.to(device),
+                    "atom_action_mask": atom_action_mask,
+                    "bond_action_mask": bond_action_mask,
+                    "sub_graph_id":sub_graph_id.to(device),
+                    "edge_idx": edge_idx,
+                    "edge_idx_remove_supernode": edge_idx_remove_supernode_idx,
+                    "reaction_type": None,
+            }
 
 
 def get_batch(paths: List[dict], base_action_masks: dict,
@@ -208,14 +224,26 @@ def get_batch(paths: List[dict], base_action_masks: dict,
     graphs = [None for i in range(len(paths))]
     
     for i in range(len(paths)):
-        graphs[i] = {"node_features": node_feature_list[i],
-                        "node_mask":node_mask_list[i],
-                        'adj':adj_list[i],
-                        'adj_mask': adj_mask_list[i], 
-                        'atom_action_mask': atom_action_mask_list[i], 
-                        'bond_action_mask': bond_action_mask_list[i], 
-                        'max_map_num': torch.tensor(max_map_num_list),
-        }
+        if reaction_types is None:
+            graphs[i] = {"node_features": node_feature_list[i],
+                            "node_mask":node_mask_list[i],
+                            'adj':adj_list[i],
+                            'adj_mask': adj_mask_list[i], 
+                            'atom_action_mask': atom_action_mask_list[i], 
+                            'bond_action_mask': bond_action_mask_list[i], 
+                            'max_map_num': torch.tensor(max_map_num_list),
+                            'reaction_type': None
+            }
+        else:
+            graphs[i] = {"node_features": node_feature_list[i],
+                            "node_mask":node_mask_list[i],
+                            'adj':adj_list[i],
+                            'adj_mask': adj_mask_list[i], 
+                            'atom_action_mask': atom_action_mask_list[i], 
+                            'bond_action_mask': bond_action_mask_list[i], 
+                            'max_map_num': torch.tensor(max_map_num_list),
+                            'reaction_type': reaction_types[i]
+            }
     
     batch = merge_eval_graph(graphs, feat_vocab)
     

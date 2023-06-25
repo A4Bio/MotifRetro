@@ -144,7 +144,7 @@ class Exp:
                 wandb.log(new_train_metric)
             print_log(new_train_metric)
 
-            if epoch>self.args.epoch-3:
+            if epoch>self.args.epoch-15:
                 self._save("epoch_{}".format(epoch))
             if epoch % self.args.log_step == 0:
                 valid_metric = self.valid()
@@ -172,7 +172,7 @@ class Exp:
 
     def test(self):
         epoch_metric = self.method.test_one_epoch(self.test_loader)
-        if not args.no_wandb:
+        if not self.method.args.no_wandb:
             wandb.log(epoch_metric)
         print_log(epoch_metric)
 
@@ -198,8 +198,6 @@ if __name__ == '__main__':
     set_seed(111)
     exp = Exp(args)
     # args.only_test = True
-
-    # exp.method.model.load_state_dict(torch.load("/gaozhangyang/experiments/MotifRetro/results/search2023-03-22 21:57:17.241017/checkpoint.pth"))
     
 
     if not args.only_test:
@@ -212,5 +210,7 @@ if __name__ == '__main__':
         # exp.valid()
     # print('>>>>>>>>>>>>>>>>>>>>>>>>> testing  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
     else:
+        print(f"load from /gaozhangyang/experiments/MotifRetro/results/{args.ex_name}/checkpoint.pth")
+        exp.method.model.load_state_dict(torch.load(f"/gaozhangyang/experiments/MotifRetro/results/{args.ex_name}/checkpoint.pth"))
         test_metric = exp.test()
     print("finished")

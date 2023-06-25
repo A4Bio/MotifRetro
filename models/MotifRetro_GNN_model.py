@@ -95,7 +95,9 @@ class Megan(nn.Module):
             self.bond_embedding = nn.Linear(total_bond_oh_len, bond_emb_dim)
         
         if self.use_degree_feat:
-            self.degree_embedding = nn.Embedding(100, hidden_dim)
+            # self.degree_embedding = nn.Embedding(100, hidden_dim)
+            self.degree_embedding = nn.Linear(1, hidden_dim)
+            
 
 
 
@@ -149,7 +151,8 @@ class Megan(nn.Module):
             bond_feats += bond_reaction_type_emb
 
         if self.use_degree_feat:
-            atom_feats += self.degree_embedding(x['degree'])
+            # atom_feats += self.degree_embedding(x['degree'])
+            atom_feats += self.degree_embedding(x['degree'].reshape(-1,1).float())
 
         
         results = {"atom_mask": x['atom_mask'],

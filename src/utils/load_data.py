@@ -287,9 +287,11 @@ class DataCollator(object):
 def collate_fn_test(batch):
     source_smi = [one['source_smi'] for one in batch]
     target_smi = [one['target_smi'] for one in batch]
+    reaction_type_id = [one['reaction_type_id'] for one in batch]
     return {
         "source_smi": source_smi,
         "target_smi": target_smi,
+        "reaction_type_id":reaction_type_id
     }
 
 def get_dataset(args, data_name, featurizer_key, data_path, keep_action = None, use_reaction_type = False, vocab_path=None, num_workers=8, batch_size=4, mode="train", distributed=False):
